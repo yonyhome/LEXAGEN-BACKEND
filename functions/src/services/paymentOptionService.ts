@@ -1,7 +1,6 @@
 import { db, admin } from '../firebase';
-import * as functions from 'firebase-functions';
+import { logger } from 'firebase-functions';
 
-// Constantes de configuración
 const MAX_TOKEN_LENGTH = 1500;
 const VALID_OPTIONS = ['pdf', 'pdf-word'] as const;
 const COLLECTION_NAME = 'paymentOptions';
@@ -9,7 +8,6 @@ const COLLECTION_NAME = 'paymentOptions';
 type PaymentOption = typeof VALID_OPTIONS[number];
 
 export async function savePaymentOption(token: string, option: PaymentOption): Promise<void> {
-  // Validación mejorada con mensajes claros
   const validationError = validateInputs(token, option);
   if (validationError) throw new Error(validationError);
 
@@ -22,61 +20,71 @@ export async function savePaymentOption(token: string, option: PaymentOption): P
   };
 
   try {
-    functions.logger.log('Guardando opción de pago', {
+    logger.info('[savePaymentOption] Guardando opción de pago', {
       tokenPrefix: trimmedToken.substring(0, 5),
       tokenLength: trimmedToken.length,
       option
     });
 
-    const writeResult = await db.collection(COLLECTION_NAME)
+    const writeResult = await db
+      .collection(COLLECTION_NAME)
       .doc(trimmedToken)
       .set(documentData, { merge: true });
 
-    functions.logger.log('Opción guardada exitosamente', {
+    logger.info('[savePaymentOption] Guardado exitoso', {
       documentId: trimmedToken,
       writeTime: writeResult.writeTime.toDate().toISOString()
     });
 
   } catch (error: any) {
     const firestoreError = handleFirestoreError(error, trimmedToken);
-    functions.logger.error('Error en Firestore', firestoreError.logDetails);
+
+    logger.error('[savePaymentOption] Error al guardar en Firestore', {
+      ...firestoreError.logDetails,
+      stack: error.stack,
+      raw: error
+    });
+
     throw new Error(firestoreError.userMessage);
   }
 }
 
 export async function getPaymentOption(token: string): Promise<PaymentOption | null> {
   if (!token || typeof token !== 'string' || token.trim().length === 0) {
-    functions.logger.warn('Token inválido recibido');
+    logger.warn('[getPaymentOption] Token inválido recibido');
     return null;
   }
 
   const trimmedToken = token.trim();
 
   try {
-    const doc = await db.collection(COLLECTION_NAME)
+    const doc = await db
+      .collection(COLLECTION_NAME)
       .doc(trimmedToken)
       .get();
 
     if (!doc.exists) {
-      functions.logger.warn('Documento no encontrado', { 
-        tokenLength: trimmedToken.length 
-      });
+      logger.warn('[getPaymentOption] Documento no encontrado', { tokenLength: trimmedToken.length });
       return null;
     }
 
     return validateDocumentData(doc.data(), trimmedToken);
 
   } catch (error: any) {
-    functions.logger.error('Error al obtener opción', {
-      error: error.message,
-      code: error.code,
+    logger.error('[getPaymentOption] Error al obtener documento', {
+      message: error.message,
+      code: error.code || 'unknown',
+      stack: error.stack,
       tokenLength: trimmedToken.length
     });
     return null;
   }
 }
 
-// Funciones auxiliares (privadas)
+// ==========================
+// 🔒 Funciones auxiliares
+// ==========================
+
 function validateInputs(token: string, option: string): string | null {
   if (!token || typeof token !== 'string') return 'Token inválido: debe ser un string';
   if (token.trim().length === 0) return 'Token no puede estar vacío';
@@ -86,9 +94,9 @@ function validateInputs(token: string, option: string): string | null {
   return null;
 }
 
-function handleFirestoreError(error: any, token: string): { 
-  userMessage: string; 
-  logDetails: Record<string, any> 
+function handleFirestoreError(error: any, token: string): {
+  userMessage: string;
+  logDetails: Record<string, any>;
 } {
   const errorMap: Record<string, string> = {
     'resource-exhausted': 'Límite de cuota excedido',
@@ -104,17 +112,14 @@ function handleFirestoreError(error: any, token: string): {
     logDetails: {
       code: error.code || 'unknown',
       message: error.message,
-      tokenLength: token.length,
-      firestoreError: JSON.stringify(error)
+      tokenLength: token.length
     }
   };
 }
 
 function validateDocumentData(data: any, token: string): PaymentOption | null {
   if (!data || typeof data !== 'object') {
-    functions.logger.error('Datos del documento inválidos', { 
-      documentId: token 
-    });
+    logger.error('[getPaymentOption] Datos inválidos en documento', { documentId: token });
     return null;
   }
 
@@ -123,7 +128,7 @@ function validateDocumentData(data: any, token: string): PaymentOption | null {
     return option;
   }
 
-  functions.logger.error('Opción inválida en documento', {
+  logger.error('[getPaymentOption] Opción inválida en documento', {
     documentId: token,
     receivedOption: option,
     validOptions: VALID_OPTIONS

@@ -1,101 +1,79 @@
-import * as functions from 'firebase-functions/v1';
+import { https, logger } from 'firebase-functions/v2';
 import cors from 'cors';
 import { savePaymentOption } from '../services/paymentOptionService';
 
-const corsHandler = cors({ 
+const corsHandler = cors({
   origin: true,
   methods: ['POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type']
 });
 
-export const savePaymentOptionRest = functions
-  .runWith({
-    timeoutSeconds: 10,
-    memory: '512MB',
-    maxInstances: 3
-  })
-  .https.onRequest(async (req, res) => {
-    // Manejo de CORS preflight
-    if (req.method === 'OPTIONS') {
-      return corsHandler(req, res, () => res.status(204).send(''));
-    }
+export const savePaymentOptionRest = https.onRequest((req, res) => {
+  if (req.method === 'OPTIONS') {
+    return corsHandler(req, res, () => res.status(204).send(''));
+  }
 
-    corsHandler(req, res, async () => {
-      try {
-        // 1. Validación de método HTTP
-        if (req.method !== 'POST') {
-          functions.logger.warn('Método no permitido', { method: req.method });
-          return res.status(405).json({ 
-            error: 'Método no permitido',
-            allowed: ['POST']
-          });
-        }
-
-        // 2. Validación de content-type
-        if (!req.is('application/json')) {
-          return res.status(415).json({ 
-            error: 'Content-Type no soportado',
-            required: 'application/json'
-          });
-        }
-
-        // 3. Extracción y validación de datos
-        const { token, option } = req.body || {};
-        const validationErrors = validateInput(token, option);
-        
-        if (validationErrors) {
-          functions.logger.warn('Validación fallida', validationErrors);
-          return res.status(400).json({ 
-            error: 'Datos inválidos',
-            details: validationErrors
-          });
-        }
-
-        // 4. Procesamiento principal
-        const startTime = Date.now();
-        await savePaymentOption(token.trim(), option as 'pdf'|'pdf-word');
-        const duration = Date.now() - startTime;
-
-        // 5. Logging y respuesta exitosa
-        functions.logger.log('Operación exitosa', {
-          tokenLength: token.length,
-          option,
-          durationMs: duration,
-          status: 'success'
-        });
-
-        return res.status(200).json({ 
-          success: true,
-          message: 'Opción guardada con éxito',
-          metadata: {
-            processingTime: `${duration}ms`,
-            timestamp: new Date().toISOString()
-          }
-        });
-
-      } catch (err: any) {
-        // 6. Manejo de errores estructurado
-        const errorDetails = {
-          message: err.message,
-          code: err.code || 'internal-error',
-          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-          timestamp: new Date().toISOString()
-        };
-
-        functions.logger.error('Error en el endpoint', errorDetails);
-
-        const response = {
-          error: 'Error al procesar la solicitud',
-          requestId: res.locals.requestId || 'none',
-          ...(process.env.NODE_ENV === 'development' && { details: errorDetails })
-        };
-
-        return res.status(500).json(response);
+  corsHandler(req, res, async () => {
+    try {
+      if (req.method !== 'POST') {
+        logger.warn('[savePaymentOptionRest] Método no permitido', { method: req.method });
+        return res.status(405).json({ error: 'Método no permitido', allowed: ['POST'] });
       }
-    });
-  });
 
-// Función auxiliar para validación
+      if (!req.is('application/json')) {
+        logger.warn('[savePaymentOptionRest] Content-Type inválido', { received: req.get('Content-Type') });
+        return res.status(415).json({ error: 'Content-Type no soportado', required: 'application/json' });
+      }
+
+      const { token, option } = req.body || {};
+
+      logger.info('[savePaymentOptionRest] Payload recibido', { token, option });
+
+      const validationErrors = validateInput(token, option);
+      if (validationErrors) {
+        logger.warn('[savePaymentOptionRest] Validación fallida', validationErrors);
+        return res.status(400).json({ error: 'Datos inválidos', details: validationErrors });
+      }
+
+      const startTime = Date.now();
+      await savePaymentOption(token.trim(), option as 'pdf' | 'pdf-word');
+      const duration = Date.now() - startTime;
+
+      logger.info('[savePaymentOptionRest] Opción guardada correctamente', {
+        tokenLength: token.length,
+        option,
+        durationMs: duration
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Opción guardada con éxito',
+        metadata: {
+          processingTime: `${duration}ms`,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+    } catch (err: any) {
+      logger.error('[savePaymentOptionRest] ❌ Error al guardar en Firestore', {
+        message: err.message,
+        code: err.code || 'unknown',
+        stack: err.stack,
+        raw: err
+      });
+
+      return res.status(500).json({
+        error: 'Error al procesar la solicitud',
+        details: {
+          message: err.message || 'Error inesperado',
+          code: err.code || 'internal-error',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+  });
+});
+
 function validateInput(token: unknown, option: unknown): Record<string, string> | null {
   const errors: Record<string, string> = {};
 

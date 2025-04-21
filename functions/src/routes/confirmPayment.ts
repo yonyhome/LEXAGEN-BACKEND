@@ -1,12 +1,11 @@
-import * as functions from 'firebase-functions';
+import { onRequest } from 'firebase-functions/v2/https';
 import cors from 'cors';
 import { Request, Response } from 'express';
 import axios from 'axios';
 
-// Middleware CORS
 const corsHandler = cors({ origin: true });
 
-export const confirmPayment = functions.https.onRequest((req: Request, res: Response) => {
+export const confirmPayment = onRequest((req: Request, res: Response) => {
   corsHandler(req, res, async () => {
     try {
       const { ref_payco } = req.query;
@@ -15,7 +14,6 @@ export const confirmPayment = functions.https.onRequest((req: Request, res: Resp
         return;
       }
 
-      // Consultar el estado del pago desde la API de ePayco
       const epaycoUrl = `https://secure.epayco.co/validation/v1/reference/${ref_payco}`;
       const response = await axios.get(epaycoUrl);
 
@@ -25,7 +23,6 @@ export const confirmPayment = functions.https.onRequest((req: Request, res: Resp
         return;
       }
 
-      // Interpretar código de respuesta
       const { x_cod_response, x_response, x_transaction_id, x_extra1 } = data;
 
       let status: 'success' | 'rejected' | 'canceled' = 'rejected';
@@ -33,7 +30,6 @@ export const confirmPayment = functions.https.onRequest((req: Request, res: Resp
       else if (x_cod_response === '2') status = 'rejected';
       else if (x_cod_response === '3') status = 'canceled';
 
-      // Respuesta final al frontend
       res.status(200).json({
         status,
         details: {
@@ -49,4 +45,3 @@ export const confirmPayment = functions.https.onRequest((req: Request, res: Resp
     }
   });
 });
-

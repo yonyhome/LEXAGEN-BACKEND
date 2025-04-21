@@ -4,7 +4,7 @@ import { getApps, initializeApp} from 'firebase-admin/app';
 
 if (!getApps().length) {
   initializeApp({
-    storageBucket: "lexagen-e6d7f.appspot.com",
+    storageBucket: "lexagen-e6d7f.firebasestorage.app",
   });
 }
 

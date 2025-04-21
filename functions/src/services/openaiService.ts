@@ -1,8 +1,6 @@
-// functions/src/services/openaiService.ts
 import axios from 'axios';
-import { defineSecret } from 'firebase-functions/params';
+import { getEnvVar } from '../utils/getEnv';
 
-const OPENAI_KEY = defineSecret('OPENAI_KEY');
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 interface ChatMessage {
@@ -19,6 +17,8 @@ export async function callOpenAI(prompt: string, context: string): Promise<strin
     { role: 'user', content: context }
   ];
 
+  const openaiKey = getEnvVar('OPENAI_KEY');
+
   const response = await axios.post(OPENAI_URL, {
     model: 'gpt-4o-mini-2024-07-18',
     messages,
@@ -26,7 +26,7 @@ export async function callOpenAI(prompt: string, context: string): Promise<strin
     max_tokens: 1200
   }, {
     headers: {
-      'Authorization': `Bearer ${OPENAI_KEY.value()}`,
+      Authorization: `Bearer ${openaiKey}`,
       'Content-Type': 'application/json'
     }
   });
