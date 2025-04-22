@@ -10,14 +10,16 @@ import { logger } from 'firebase-functions';
 const corsHandler = cors({ origin: true });
 
 export const getTransactionStatus = onRequest((req, res) => {
+
   corsHandler(req, res, async () => {
+
     const token =
       req.method === 'GET'
-        ? (req.query.token || req.query.ref_payco)
+        ? String(req.query.token)
         : req.body?.token;
 
-    if (!token || typeof token !== 'string') {
-      return res.status(400).json({ error: 'Falta el token o no es válido.' });
+    if (!token) {
+      return res.status(400).json({ error: 'Falta el token.' });
     }
 
     try {
@@ -43,8 +45,8 @@ export const getTransactionStatus = onRequest((req, res) => {
         const option = await getPaymentOption(token);
         const filename =
           option === 'pdf-word' ? 'LexaGen_Documentos.zip'
-          : option === 'pdf' ? 'documento.pdf'
-          : 'documento.pdf';
+            : option === 'pdf' ? 'documento.pdf'
+              : 'documento.pdf';
 
         const downloadUrl = await getDownloadUrl(token, filename);
 
