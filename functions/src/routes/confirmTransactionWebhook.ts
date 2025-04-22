@@ -63,7 +63,7 @@ app.post('/', async (req, res) => {
       logger.error('[Webhook] ❌ Error procesando webhook', error.message || error);
       return res.status(500).json({ error: 'Error interno procesando webhook.' });
     }
-  });
+  
 });
 
 // Exportar como cloud function
