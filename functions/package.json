@@ -24,9 +24,11 @@
   "dependencies": {
     "@google-cloud/storage": "^7.16.0",
     "axios": "^1.8.4",
+    "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "docx": "^9.3.0",
     "dotenv": "^16.5.0",
+    "express": "^5.1.0",
     "firebase-admin": "^11.11.1",
     "firebase-functions": "^4.4.1",
     "jszip": "^3.10.1",

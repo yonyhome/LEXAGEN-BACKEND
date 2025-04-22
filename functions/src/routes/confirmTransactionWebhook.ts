@@ -1,19 +1,20 @@
-// functions/src/routes/confirmTransactionWebhook.ts
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
+import express from 'express';
 import cors from 'cors';
 import { db } from '../firebase';
 
-const corsHandler = cors({ origin: true });
+// Crear app de Express
+const app = express();
 
-export const confirmTransactionWebhook = onRequest((req, res) => {
-  corsHandler(req, res, async () => {
-    try {
-      if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Método no permitido' });
-      }
+// Middleware para CORS y parsing del body tipo x-www-form-urlencoded
+app.use(cors({ origin: true }));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json()); // Por si alguna vez llega en JSON
 
-      const data = req.body;
+app.post('/', async (req, res) => {
+  try {
+    const data = req.body;
 
       // ePayco devuelve tu invoice aquí:
       const invoice = (data.x_id_factura || data.x_id_invoice) as string;
@@ -24,12 +25,19 @@ export const confirmTransactionWebhook = onRequest((req, res) => {
         return res.status(400).json({ error: 'Faltan datos requeridos en el webhook.' });
       }
 
-      const statusMap: Record<string, string> = {
-        '1': 'success',
-        '2': 'rejected',
-        '3': 'canceled'
-      };
-      const status = statusMap[data.x_cod_response] || 'unknown';
+    const statusMap: Record<string, string> = {
+      '1': 'success',
+      '2': 'rejected',
+      '3': 'canceled',
+      '4': 'failed',
+      '6': 'reversed',
+      '7': 'held',
+      '9': 'expired',
+      '10': 'abandoned',
+      '11': 'canceled',
+    };
+
+    const status = statusMap[data.x_cod_response] || 'unknown';
 
       const transaction = {
         invoice,
@@ -57,3 +65,6 @@ export const confirmTransactionWebhook = onRequest((req, res) => {
     }
   });
 });
+
+// Exportar como cloud function
+export const confirmTransactionWebhook = onRequest({ cors: true }, app);
