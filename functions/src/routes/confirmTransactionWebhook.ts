@@ -1,29 +1,38 @@
+// functions/src/routes/confirmTransactionWebhook.ts
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import express from 'express';
 import cors from 'cors';
 import { db } from '../firebase';
 
-// Crear app de Express
 const app = express();
 
-// Middleware para CORS y parsing del body tipo x-www-form-urlencoded
+// permitir CORS y parsear body urlencoded y JSON
 app.use(cors({ origin: true }));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json()); // Por si alguna vez llega en JSON
+app.use(express.json());
 
 app.post('/', async (req, res) => {
   try {
     const data = req.body;
 
-    const refPayco = data?.x_ref_payco;
-    const transactionId = data?.x_transaction_id;
-    const token = data?.x_extra1;
+    const invoice =
+      (data.invoice as string) ||
+      (data.x_id_invoice as string) ||
+      (data.x_id_factura as string);
 
-    if (!refPayco || !transactionId || !token) {
-      return res.status(400).json({ error: 'Faltan datos requeridos en el webhook' });
+    // ref_payco y transaction_id también vienen en el payload
+    const refPayco = (data.ref_payco as string) || (data.x_ref_payco as string);
+    const transactionId =
+      (data.transactionId as string) || (data.x_transaction_id as string);
+
+    if (!invoice || !refPayco || !transactionId) {
+      return res
+        .status(400)
+        .json({ error: 'Faltan datos requeridos (invoice, ref_payco o transaction_id).' });
     }
 
+    // Mapear el código de respuesta al estado interno
     const statusMap: Record<string, string> = {
       '1': 'success',
       '2': 'rejected',
@@ -35,25 +44,25 @@ app.post('/', async (req, res) => {
       '10': 'abandoned',
       '11': 'canceled',
     };
+    const status = statusMap[(data.x_cod_response as string)] || 'unknown';
 
-    const status = statusMap[data.x_cod_response] || 'unknown';
-
+    // Construir el objeto de transacción
     const transaction = {
+      invoice,           // usamos 'invoice' como token / doc ID
       refPayco,
       transactionId,
-      token,
       status,
-      valor: parseFloat(data?.x_amount || '0'),
-      metodoPago: 'ePayco',
-      descripcion: data?.x_description || 'Documento Legal',
-      fecha: data?.x_transaction_date || new Date().toISOString(),
+      valor: parseFloat((data.x_amount as string) || '0'),
+      metodoPago: data.metodoPago || 'ePayco',
+      descripcion: data.descripcion || data.x_description || 'Documento Legal',
+      fecha: data.fecha || data.x_transaction_date || new Date().toISOString(),
       raw: data,
     };
 
-    await db.collection('transactions').doc(token).set(transaction, { merge: true });
+    // Guardar (o actualizar) en Firestore bajo el ID = invoice
+    await db.collection('transactions').doc(invoice).set(transaction, { merge: true });
 
-    logger.log('[Webhook] 🧾 Transacción registrada:', { token, status });
-
+    logger.log('[Webhook] 🧾 Transacción registrada:', { invoice, status });
     return res.status(200).send('OK');
   } catch (error: any) {
     logger.error('[Webhook] ❌ Error procesando webhook', error?.message || error);
@@ -61,5 +70,5 @@ app.post('/', async (req, res) => {
   }
 });
 
-// Exportar como cloud function
+// Exportar la función
 export const confirmTransactionWebhook = onRequest({ cors: true }, app);
