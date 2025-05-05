@@ -22,8 +22,8 @@ export async function callOpenAI(prompt: string, context: string): Promise<strin
   const response = await axios.post(OPENAI_URL, {
     model: 'gpt-4o-mini-2024-07-18',
     messages,
-    temperature: 0.1,
-    max_tokens: 1200
+    temperature: 0.3,
+    max_tokens: 2000
   }, {
     headers: {
       Authorization: `Bearer ${openaiKey}`,
