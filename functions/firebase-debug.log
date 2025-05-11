@@ -1,0 +1,34 @@
+[debug] [2025-05-10T15:00:08.126Z] ----------------------------------------------------------------------
+[debug] [2025-05-10T15:00:08.128Z] Command:       /home/yony/.nvm/versions/node/v21.6.1/bin/node /home/yony/.nvm/versions/node/v21.6.1/bin/firebase functions:config:set memory=1GB timeout=300s
+[debug] [2025-05-10T15:00:08.128Z] CLI Version:   13.7.3
+[debug] [2025-05-10T15:00:08.128Z] Platform:      linux
+[debug] [2025-05-10T15:00:08.128Z] Node Version:  v21.6.1
+[debug] [2025-05-10T15:00:08.128Z] Time:          Sat May 10 2025 10:00:08 GMT-0500 (hora estándar de Colombia)
+[debug] [2025-05-10T15:00:08.129Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-05-10T15:00:08.131Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2025-05-10T15:00:08.228Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-05-10T15:00:08.228Z] > authorizing via signed-in user (yonyhome99@gmail.com)
+[debug] [2025-05-10T15:00:08.228Z] [iam] checking project lexagen-e6d7f for permissions ["firebase.projects.get","runtimeconfig.configs.create","runtimeconfig.configs.delete","runtimeconfig.configs.get","runtimeconfig.configs.list","runtimeconfig.configs.update","runtimeconfig.variables.create","runtimeconfig.variables.delete","runtimeconfig.variables.get","runtimeconfig.variables.list","runtimeconfig.variables.update"]
+[debug] [2025-05-10T15:00:08.229Z] > refreshing access token with scopes: []
+[debug] [2025-05-10T15:00:08.230Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-05-10T15:00:08.230Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-05-10T15:00:08.944Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2025-05-10T15:00:08.944Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2025-05-10T15:00:08.968Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-05-10T15:00:08.968Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-05-10T15:00:08.971Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/lexagen-e6d7f:testIamPermissions [none]
+[debug] [2025-05-10T15:00:08.971Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/lexagen-e6d7f:testIamPermissions x-goog-quota-user=projects/lexagen-e6d7f
+[debug] [2025-05-10T15:00:08.971Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/lexagen-e6d7f:testIamPermissions {"permissions":["firebase.projects.get","runtimeconfig.configs.create","runtimeconfig.configs.delete","runtimeconfig.configs.get","runtimeconfig.configs.list","runtimeconfig.configs.update","runtimeconfig.variables.create","runtimeconfig.variables.delete","runtimeconfig.variables.get","runtimeconfig.variables.list","runtimeconfig.variables.update"]}
+[debug] [2025-05-10T15:00:09.651Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/lexagen-e6d7f:testIamPermissions 200
+[debug] [2025-05-10T15:00:09.651Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/lexagen-e6d7f:testIamPermissions {"permissions":["firebase.projects.get","runtimeconfig.configs.create","runtimeconfig.configs.delete","runtimeconfig.configs.get","runtimeconfig.configs.list","runtimeconfig.configs.update","runtimeconfig.variables.create","runtimeconfig.variables.delete","runtimeconfig.variables.get","runtimeconfig.variables.list","runtimeconfig.variables.update"]}
+[debug] [2025-05-10T15:00:09.651Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/lexagen-e6d7f/services/runtimeconfig.googleapis.com [none]
+[debug] [2025-05-10T15:00:09.651Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/lexagen-e6d7f/services/runtimeconfig.googleapis.com x-goog-quota-user=projects/lexagen-e6d7f
+[debug] [2025-05-10T15:00:10.521Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/lexagen-e6d7f/services/runtimeconfig.googleapis.com 200
+[debug] [2025-05-10T15:00:10.521Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/lexagen-e6d7f/services/runtimeconfig.googleapis.com [omitted]
+[debug] [2025-05-10T15:00:15.524Z] Error: Timed out.
+    at Timeout._onTimeout (/home/yony/.nvm/versions/node/v21.6.1/lib/node_modules/firebase-tools/lib/utils.js:261:49)
+    at listOnTimeout (node:internal/timers:573:17)
+    at process.processTimers (node:internal/timers:514:7)
+[error] 
+[error] Error: An unexpected error has occurred.

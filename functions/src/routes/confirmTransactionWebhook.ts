@@ -12,7 +12,7 @@ app.use(cors({ origin: true }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-app.post('/', async (req, res) => {
+app.post('/', async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const data = req.body;
 
@@ -27,9 +27,10 @@ app.post('/', async (req, res) => {
       (data.transactionId as string) || (data.x_transaction_id as string);
 
     if (!invoice || !refPayco || !transactionId) {
-      return res
+      res
         .status(400)
         .json({ error: 'Faltan datos requeridos (invoice, ref_payco o transaction_id).' });
+      return Promise.resolve();
     }
 
     // Mapear el código de respuesta al estado interno
@@ -63,12 +64,65 @@ app.post('/', async (req, res) => {
     await db.collection('transactions').doc(invoice).set(transaction, { merge: true });
 
     logger.log('[Webhook] 🧾 Transacción registrada:', { invoice, status });
-    return res.status(200).send('OK');
+    res.status(200).send('OK');
   } catch (error: any) {
     logger.error('[Webhook] ❌ Error procesando webhook', error?.message || error);
-    return res.status(500).send('Internal Server Error');
+    res.status(500).send('Internal Server Error');
   }
 });
 
 // Exportar la función
-export const confirmTransactionWebhook = onRequest({ cors: true }, app);
+export const confirmTransactionWebhook = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const data = req.body;
+
+    const invoice =
+      (data.invoice as string) ||
+      (data.x_id_invoice as string) ||
+      (data.x_id_factura as string);
+
+    const refPayco = (data.ref_payco as string) || (data.x_ref_payco as string);
+    const transactionId =
+      (data.transactionId as string) || (data.x_transaction_id as string);
+
+    if (!invoice || !refPayco || !transactionId) {
+      res
+        .status(400)
+        .json({ error: 'Faltan datos requeridos (invoice, ref_payco o transaction_id).' });
+      return;
+    }
+
+    const statusMap: Record<string, string> = {
+      '1': 'success',
+      '2': 'rejected',
+      '3': 'canceled',
+      '4': 'failed',
+      '6': 'reversed',
+      '7': 'held',
+      '9': 'expired',
+      '10': 'abandoned',
+      '11': 'canceled',
+    };
+    const status = statusMap[(data.x_cod_response as string)] || 'unknown';
+
+    const transaction = {
+      invoice,
+      refPayco,
+      transactionId,
+      status,
+      valor: parseFloat((data.x_amount as string) || '0'),
+      metodoPago: data.metodoPago || 'ePayco',
+      descripcion: data.descripcion || data.x_description || 'Documento Legal',
+      fecha: data.fecha || data.x_transaction_date || new Date().toISOString(),
+      raw: data,
+    };
+
+    await db.collection('transactions').doc(invoice).set(transaction, { merge: true });
+
+    logger.log('[Webhook] 🧾 Transacción registrada:', { invoice, status });
+    res.status(200).send('OK');
+  } catch (error: any) {
+    logger.error('[Webhook] ❌ Error procesando webhook', error?.message || error);
+    res.status(500).send('Internal Server Error');
+  }
+});
