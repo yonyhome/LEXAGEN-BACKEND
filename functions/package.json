@@ -13,7 +13,6 @@
     "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
-  
   "firebase": {
     "functions": {
       "predeploy": [
@@ -48,6 +47,7 @@
     "uuid": "^8.3.2"
   },
   "devDependencies": {
+    "@types/html-docx-js": "^0.3.4",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.14.1",
     "@types/pdfmake": "^0.2.11",

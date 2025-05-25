@@ -9,20 +9,32 @@ interface ChatMessage {
 }
 
 /**
- * Llama al modelo GPT con instrucciones y contexto
+ * Llama al modelo GPT con instrucciones y contexto, incluyendo fecha actual
  */
 export async function callOpenAI(prompt: string, context: string): Promise<string> {
+  // 1. Calcula la fecha actual en español (Colombia)
+  const now = new Date();
+  const fechaCol = now.toLocaleDateString('es-CO', {
+    day:   '2-digit',
+    month: 'long',
+    year:  'numeric'
+  });
+  
+  // 2. Construye los mensajes, inyectando la fecha en el primer system message
   const messages: ChatMessage[] = [
-    { role: 'system', content: prompt },
+    {
+      role: 'system',
+      content: `${prompt}\n\n--\nNota: la fecha actual es ${fechaCol}.`
+    },
     { role: 'user', content: context }
   ];
 
   const openaiKey = getEnvVar('OPENAI_KEY');
 
   const response = await axios.post(OPENAI_URL, {
-    model: 'gpt-4o-mini-2024-07-18',
+    model: 'gpt-4.1-2025-04-14',
     messages,
-    temperature: 0.3,
+    temperature: 0.2,
     max_tokens: 2000
   }, {
     headers: {
