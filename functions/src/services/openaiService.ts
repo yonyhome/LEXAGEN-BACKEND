@@ -35,7 +35,7 @@ export async function callOpenAI(prompt: string, context: string): Promise<strin
     model: 'gpt-4.1-2025-04-14',
     messages,
     temperature: 0.2,
-    max_tokens: 2000
+    max_tokens: 4000,
   }, {
     headers: {
       Authorization: `Bearer ${openaiKey}`,

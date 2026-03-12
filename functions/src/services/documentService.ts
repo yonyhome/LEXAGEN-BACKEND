@@ -120,7 +120,7 @@ const getProfessionalDocDefinition = (pdfMakeContent) => ({
     signature: {
       fontSize: 11,
       bold: true,
-      margin: [0, 10, 0, 2],  // Solo 2pt después de "Atentamente,"
+      margin: [0, 0, 0, 0],  // Solo 2pt después de "Atentamente,"
       color: '#2d3748'
     },
     
@@ -134,7 +134,7 @@ const getProfessionalDocDefinition = (pdfMakeContent) => ({
   
   // Configuración de página compacta
   pageSize: 'LETTER',
-  pageMargins: [50, 55, 50, 55],
+  pageMargins: [50, 50, 50, 50],
   
   // Header mínimo
   header: function(currentPage, pageCount) {

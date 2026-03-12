@@ -15,6 +15,7 @@ import {
 import {
   questionValidationPrompt,
   getLegalDocumentGenerationPrompt,
+  VALID_DOCUMENT_TYPES,
 } from '../utils/prompts';
 
 const corsHandler = cors({ origin: true });
@@ -54,23 +55,58 @@ function processLLMHtml(rawHtml: string): string {
 }
 
 // Función para validar la calidad del documento generado
-function validateDocumentQuality(html: string): { isValid: boolean; issues: string[] } {
+function validateDocumentQuality(html: string, tipoDocumento?: string): { isValid: boolean; issues: string[] } {
   const issues: string[] = [];
-  
-  // Verificar elementos esenciales
-  if (!html.includes('HECHOS')) {
-    issues.push('Falta sección HECHOS');
-  }
-  if (!html.includes('PETICIONES') && !html.includes('SOLICITUD')) {
-    issues.push('Falta sección PETICIONES o SOLICITUD');
+
+  // Verificaciones comunes a todos los documentos
+  if (!html.includes('HECHOS') && !html.includes('ANTECEDENTES')) {
+    issues.push('Falta sección HECHOS o ANTECEDENTES');
   }
   if (!html.includes('Atentamente') && !html.includes('Cordialmente')) {
     issues.push('Falta cierre formal del documento');
   }
-  if (!html.includes('@')) {
-    issues.push('Falta información de contacto (email)');
+
+  // Verificaciones específicas por tipo
+  switch (tipoDocumento) {
+    case 'Tutela':
+      if (!html.includes('derecho') && !html.includes('fundamental')) {
+        issues.push('Tutela no menciona derecho fundamental');
+      }
+      if (!html.includes('PETICIONES') && !html.includes('SOLICITUD')) {
+        issues.push('Falta sección de peticiones en tutela');
+      }
+      break;
+    case 'Recurso de Reposición':
+    case 'Recurso de Apelación':
+      if (!html.includes('IMPUGNA') && !html.includes('acto') && !html.includes('resolución') && !html.includes('decisión')) {
+        issues.push(`${tipoDocumento} no identifica el acto impugnado`);
+      }
+      if (!html.includes('CPACA') && !html.includes('1437') && !html.includes('recursos')) {
+        issues.push(`${tipoDocumento} no menciona fundamento legal de recursos`);
+      }
+      break;
+    case 'Queja ante Superintendencia':
+      if (!html.includes('Superintendencia') && !html.includes('Super')) {
+        issues.push('Queja no identifica la Superintendencia competente');
+      }
+      break;
+    case 'Reclamación a Aseguradora':
+      if (!html.includes('póliza') && !html.includes('siniestro') && !html.includes('seguro')) {
+        issues.push('Reclamación no menciona la póliza o siniestro');
+      }
+      break;
+    case 'Denuncia ante Personería':
+      if (!html.includes('Personería') && !html.includes('Procuraduría') && !html.includes('disciplinario')) {
+        issues.push('Denuncia no identifica el organismo de control');
+      }
+      break;
+    default:
+      // Derecho de Petición y PQRS
+      if (!html.includes('PETICIONES') && !html.includes('SOLICITUD') && !html.includes('PETICIÓN')) {
+        issues.push('Falta sección de peticiones');
+      }
   }
-  
+
   return {
     isValid: issues.length === 0,
     issues
@@ -93,8 +129,16 @@ export const processDocumentRequest: HttpsFunction = onRequest(
         }
         
         const data = req.body.formData;
+        const tipoDocumento: string = data.tipoDocumento || '';
         const payload = JSON.stringify(data);
         console.log('[processDocumentRequest] Datos recibidos:', payload.slice(0, 200));
+        console.log('[processDocumentRequest] Tipo de documento:', tipoDocumento);
+
+        // Validar que el tipo de documento sea soportado
+        if (tipoDocumento && !VALID_DOCUMENT_TYPES.includes(tipoDocumento as any)) {
+          console.warn('[processDocumentRequest] Tipo de documento no soportado:', tipoDocumento);
+          return res.status(400).json({ error: `Tipo de documento no soportado: "${tipoDocumento}". Tipos válidos: ${VALID_DOCUMENT_TYPES.join(', ')}` });
+        }
 
         // Paso 1: Validación de datos con el LLM
         console.log('[processDocumentRequest] Validando completitud de datos...');
@@ -129,9 +173,10 @@ export const processDocumentRequest: HttpsFunction = onRequest(
           });
         }
 
-        // Paso 2: Generación del documento HTML
-        console.log('[processDocumentRequest] Generando documento legal...');
-        const rawHtml = await callOpenAI(getLegalDocumentGenerationPrompt(), payload);
+        // Paso 2: Generación del documento HTML con prompt específico por tipo
+        const generationPrompt = getLegalDocumentGenerationPrompt(tipoDocumento);
+        console.log('[processDocumentRequest] Generando documento legal para tipo:', tipoDocumento || 'Derecho de Petición');
+        const rawHtml = await callOpenAI(generationPrompt, payload);
         
         if (!rawHtml?.trim()) {
           throw new Error('LLM no devolvió contenido HTML.');
@@ -141,7 +186,7 @@ export const processDocumentRequest: HttpsFunction = onRequest(
         const cleanHtml = processLLMHtml(rawHtml);
         
         // Validar calidad del documento
-        const qualityCheck = validateDocumentQuality(cleanHtml);
+        const qualityCheck = validateDocumentQuality(cleanHtml, tipoDocumento);
         if (!qualityCheck.isValid) {
           console.warn('[processDocumentRequest] Problemas de calidad detectados:', qualityCheck.issues);
           // Continuar pero logear los problemas
