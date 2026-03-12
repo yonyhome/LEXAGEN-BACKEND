@@ -71,7 +71,7 @@ export async function getPreviewUrl(token: string): Promise<string> {
 }
 
 /**
- * Devuelve una URL temporal (firmada) del .zip de descarga válido por 5 minutos
+ * Devuelve una URL temporal (firmada) de un archivo válida por 24 horas
  */
 export async function getDownloadUrl(
   token: string,
@@ -80,7 +80,41 @@ export async function getDownloadUrl(
   const file = bucket.file(`documents/${token}/${filename}`);
   const [url] = await file.getSignedUrl({
     action: 'read',
-    expires: Date.now() + 5 * 60 * 1000, // 5 minutos
+    expires: Date.now() + 24 * 60 * 60 * 1000, // 24 horas
   });
   return url;
+}
+
+/**
+ * Sube el archivo DOCX a Firebase Storage
+ * Ruta: documents/{token}/documento.docx
+ */
+export async function uploadDocxToStorage(
+  token: string,
+  buffer: Buffer
+): Promise<void> {
+  const filePath = `documents/${token}/documento.docx`;
+  const file = bucket.file(filePath);
+  await file.save(buffer, {
+    metadata: {
+      contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    },
+  });
+}
+
+/**
+ * Retorna URLs de descarga para todos los formatos disponibles de un token
+ */
+export async function getAllDownloadUrls(token: string): Promise<{
+  pdf: string;
+  docx: string;
+  zip: string;
+}> {
+  const expiry = Date.now() + 24 * 60 * 60 * 1000; // 24 horas
+
+  const [pdfUrl] = await bucket.file(`documents/${token}/documento.pdf`).getSignedUrl({ action: 'read', expires: expiry });
+  const [docxUrl] = await bucket.file(`documents/${token}/documento.docx`).getSignedUrl({ action: 'read', expires: expiry }).catch(() => ['']);
+  const [zipUrl] = await bucket.file(`documents/${token}/LexaGen_Documentos.zip`).getSignedUrl({ action: 'read', expires: expiry }).catch(() => ['']);
+
+  return { pdf: pdfUrl, docx: docxUrl || '', zip: zipUrl || '' };
 }

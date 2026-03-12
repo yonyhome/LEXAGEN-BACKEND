@@ -25,7 +25,7 @@ export const savePaymentOptionRest = https.onRequest((req, res) => {
         return res.status(415).json({ error: 'Content-Type no soportado', required: 'application/json' });
       }
 
-      const { token, option } = req.body || {};
+      const { token, option, email, tipoDocumento } = req.body || {};
 
       logger.info('[savePaymentOptionRest] Payload recibido', { token, option });
 
@@ -36,7 +36,7 @@ export const savePaymentOptionRest = https.onRequest((req, res) => {
       }
 
       const startTime = Date.now();
-      await savePaymentOption(token.trim(), option as 'pdf' | 'pdf-word');
+      await savePaymentOption(token.trim(), option as 'pdf' | 'pdf-word', email, tipoDocumento);
       const duration = Date.now() - startTime;
 
       logger.info('[savePaymentOptionRest] Opción guardada correctamente', {

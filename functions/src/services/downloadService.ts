@@ -1,40 +1,47 @@
 // functions/src/services/downloadService.ts
+import { db, admin } from '../firebase';
 
-import { db, admin } from '../firebase'; // ✅ Importamos también `admin` para acceder a FieldValue y Timestamp
-
-const EXPIRATION_MINUTES = 30;
+const EXPIRATION_HOURS = 24;
+const MAX_DOWNLOADS = 3;
 
 /**
- * Verifica si el archivo con el token ya fue descargado o si expiró.
- * Si no ha sido descargado y no ha expirado, lo marca como descargado.
+ * Verifica si el archivo con el token puede descargarse.
+ * Permite hasta MAX_DOWNLOADS descargas dentro de EXPIRATION_HOURS horas.
+ * Si puede descargar, registra el intento.
  */
-export async function checkAndRegisterDownload(token: string): Promise<{ canDownload: boolean }> {
+export async function checkAndRegisterDownload(token: string): Promise<{ canDownload: boolean; downloadsRemaining: number }> {
   const ref = db.collection('downloads').doc(token);
   const doc = await ref.get();
-
   const now = Date.now();
 
   if (doc.exists) {
-    const data = doc.data();
-    const descargado = data?.descargado;
-    const timestamp: admin.firestore.Timestamp | undefined = data?.timestamp;
+    const data = doc.data()!;
+    const downloadCount: number = data.downloadCount || 0;
+    const timestamp: admin.firestore.Timestamp | undefined = data.timestamp;
 
-    if (descargado) return { canDownload: false };
-
+    // Verificar expiración
     if (timestamp) {
-      const elapsed = (now - timestamp.toDate().getTime()) / 1000 / 60;
-      if (elapsed > EXPIRATION_MINUTES) return { canDownload: false };
+      const elapsedHours = (now - timestamp.toDate().getTime()) / 1000 / 3600;
+      if (elapsedHours > EXPIRATION_HOURS) {
+        return { canDownload: false, downloadsRemaining: 0 };
+      }
     }
 
-    await ref.update({ descargado: true });
-    return { canDownload: true };
+    // Verificar límite de descargas
+    if (downloadCount >= MAX_DOWNLOADS) {
+      return { canDownload: false, downloadsRemaining: 0 };
+    }
+
+    // Incrementar contador
+    await ref.update({ downloadCount: downloadCount + 1 });
+    return { canDownload: true, downloadsRemaining: MAX_DOWNLOADS - downloadCount - 1 };
   }
 
-  // Crear nuevo si no existe
+  // Primera descarga
   await ref.set({
-    descargado: true,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(), // ✅ Correcto uso de FieldValue
+    downloadCount: 1,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  return { canDownload: true };
+  return { canDownload: true, downloadsRemaining: MAX_DOWNLOADS - 1 };
 }

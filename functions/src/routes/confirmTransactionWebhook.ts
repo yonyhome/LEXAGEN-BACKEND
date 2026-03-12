@@ -118,8 +118,42 @@ export const confirmTransactionWebhook = onRequest({ cors: true }, async (req, r
     };
 
     await db.collection('transactions').doc(invoice).set(transaction, { merge: true });
-
     logger.log('[Webhook] 🧾 Transacción registrada:', { invoice, status });
+
+    // ── Email post-pago ──────────────────────────────────────────────────────
+    if (status === 'success') {
+      try {
+        // Obtener email y tipo de documento desde paymentOptions
+        const optionDoc = await db.collection('paymentOptions').doc(invoice).get();
+        const optionData = optionDoc.data();
+        const buyerEmail: string | undefined =
+          optionData?.email ||
+          (data.x_customer_email as string) ||
+          (data.x_email as string);
+        const tipoDocumento: string = optionData?.tipoDocumento || 'Documento Legal';
+        const option: 'pdf' | 'pdf-word' = optionData?.option || 'pdf';
+
+        if (buyerEmail) {
+          // Obtener URL de descarga del documento
+          const { getDownloadUrl } = await import('../services/storageService');
+          const { checkAndRegisterDownload } = await import('../services/downloadService');
+          const { sendDocumentReadyEmail } = await import('../services/emailService');
+
+          // Registrar intento de descarga para el email (no cuenta contra el límite del usuario)
+          const filename = option === 'pdf-word' ? 'LexaGen_Documentos.zip' : 'documento.pdf';
+          const downloadUrl = await getDownloadUrl(invoice, filename);
+
+          await sendDocumentReadyEmail({ toEmail: buyerEmail, tipoDocumento, downloadUrl, option });
+          logger.info('[Webhook] 📧 Email enviado para invoice:', invoice.slice(0, 8));
+        } else {
+          logger.warn('[Webhook] Sin email para invoice:', invoice.slice(0, 8));
+        }
+      } catch (emailError: any) {
+        // El email fallido no debe bloquear la respuesta al webhook
+        logger.error('[Webhook] Error enviando email:', emailError?.message || emailError);
+      }
+    }
+
     res.status(200).send('OK');
   } catch (error: any) {
     logger.error('[Webhook] ❌ Error procesando webhook', error?.message || error);

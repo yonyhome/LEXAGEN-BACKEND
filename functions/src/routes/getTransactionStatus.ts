@@ -3,7 +3,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import cors from 'cors';
 import axios from 'axios';
 import { db } from '../firebase';
-import { getDownloadUrl } from '../services/storageService';
+import { getDownloadUrl, getAllDownloadUrls } from '../services/storageService';
 import { getPaymentOption } from '../services/paymentOptionService';
 import { checkAndRegisterDownload } from '../services/downloadService';
 import { logger } from 'firebase-functions';
@@ -54,24 +54,35 @@ export const getTransactionStatus = onRequest((req, res) => {
 
       // 4) Si el estado interno es 'success', generar URL de descarga
       if (status === 'success') {
-        const { canDownload } = await checkAndRegisterDownload(invoice);
+        const { canDownload, downloadsRemaining } = await checkAndRegisterDownload(invoice);
         if (!canDownload) {
           return res.status(403).json({
             status: 'expired',
             details,
-            message:
-              'El archivo ya fue descargado o ha expirado por seguridad.',
+            message: 'El enlace de descarga ha expirado o se alcanzó el límite de descargas.',
           });
         }
 
         const option = await getPaymentOption(invoice);
-        const filename =
-          option === 'pdf-word'
-            ? 'LexaGen_Documentos.zip'
-            : 'documento.pdf';
-        const downloadUrl = await getDownloadUrl(invoice, filename);
 
-        return res.status(200).json({ status, details, downloadUrl });
+        // Retornar URLs para todos los formatos disponibles
+        const urls = await getAllDownloadUrls(invoice);
+        const primaryUrl = option === 'pdf-word'
+          ? (urls.zip || urls.pdf)
+          : urls.pdf;
+
+        return res.status(200).json({
+          status,
+          details,
+          downloadUrl: primaryUrl,        // URL principal según opción elegida
+          downloadUrls: {                 // Todas las URLs disponibles
+            pdf: urls.pdf,
+            docx: urls.docx || null,
+            zip: urls.zip || null,
+          },
+          downloadsRemaining,
+          option,
+        });
       }
 
       // 5) Si no está completo, devolver solo estado y detalles almacenados

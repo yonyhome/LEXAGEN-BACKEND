@@ -149,28 +149,41 @@ export const processDocumentRequest: HttpsFunction = onRequest(
         }
         
         const validation = validationRaw.trim();
-        console.log('[processDocumentRequest] Resultado validación:', validation.slice(0, 100));
+        console.log('[processDocumentRequest] Resultado validación:', validation.slice(0, 150));
 
-        // Si los datos están incompletos, devolver preguntas
-        if (validation !== '__COMPLETO__') {
+        // El LLM puede devolver __COMPLETO__ solo o con texto adicional.
+        // Consideramos completo si la respuesta contiene __COMPLETO__ o no contiene JSON.
+        const isComplete = validation.includes('__COMPLETO__');
+
+        if (!isComplete) {
+          // Intentar extraer JSON del response (el LLM puede envolver el array en texto)
           let questions;
           try {
-            questions = JSON.parse(validation);
+            // Buscar el primer '[' y el último ']' para extraer solo el array JSON
+            const jsonStart = validation.indexOf('[');
+            const jsonEnd = validation.lastIndexOf(']');
+            if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+              questions = JSON.parse(validation.slice(jsonStart, jsonEnd + 1));
+            } else {
+              questions = JSON.parse(validation);
+            }
           } catch (parseError) {
-            console.error('[processDocumentRequest] Error parsing preguntas:', parseError);
-            throw new Error('Validación no devuelve JSON válido de preguntas.');
+            // Si no se puede parsear como JSON y tampoco es __COMPLETO__,
+            // asumir que los datos son suficientes y continuar con la generación
+            console.warn('[processDocumentRequest] Validación no parseable, asumiendo COMPLETO:', validation.slice(0, 100));
+            questions = null;
           }
-          
-          if (!Array.isArray(questions) || questions.length === 0) {
-            throw new Error('Array de preguntas inválido o vacío.');
+
+          if (questions && Array.isArray(questions) && questions.length > 0) {
+            console.log('[processDocumentRequest] Preguntas generadas:', questions.length);
+            return res.status(200).json({
+              status: 'incomplete',
+              questions,
+              message: 'Se requiere información adicional para completar el documento'
+            });
           }
-          
-          console.log('[processDocumentRequest] Preguntas generadas:', questions.length);
-          return res.status(200).json({ 
-            status: 'incomplete', 
-            questions,
-            message: 'Se requiere información adicional para completar el documento'
-          });
+          // Si questions es null o array vacío, continuar con la generación
+          console.log('[processDocumentRequest] Sin preguntas válidas, procediendo con generación');
         }
 
         // Paso 2: Generación del documento HTML con prompt específico por tipo

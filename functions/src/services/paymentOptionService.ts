@@ -7,17 +7,25 @@ const COLLECTION_NAME = 'paymentOptions';
 
 type PaymentOption = typeof VALID_OPTIONS[number];
 
-export async function savePaymentOption(token: string, option: PaymentOption): Promise<void> {
+export async function savePaymentOption(
+  token: string,
+  option: PaymentOption,
+  email?: string,
+  tipoDocumento?: string
+): Promise<void> {
   const validationError = validateInputs(token, option);
   if (validationError) throw new Error(validationError);
 
   const trimmedToken = token.trim();
-  const documentData = {
+  const documentData: Record<string, any> = {
     token: trimmedToken,
     option,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
+
+  if (email) documentData.email = email;
+  if (tipoDocumento) documentData.tipoDocumento = tipoDocumento;
 
   try {
     logger.info('[savePaymentOption] Guardando opción de pago', {
